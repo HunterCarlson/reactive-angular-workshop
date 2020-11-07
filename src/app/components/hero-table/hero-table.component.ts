@@ -28,7 +28,7 @@ import { Hero, HeroService } from '../../services/hero.service';
                 <label>Total Results: ???</label>
             </span>
         </div>
-        <div class="table-content">
+        <div class="table-content" *ngIf="hero.heroes$ | async as heroes">
             <rx-hero-badge
                 *ngFor="let hero of heroes"
                 [hero]="hero"
@@ -38,13 +38,7 @@ import { Hero, HeroService } from '../../services/hero.service';
     styleUrls: ['./hero-table.component.scss'],
 })
 export class HeroTableComponent implements OnInit {
-    heroes: Hero[];
-
-    constructor(public hero: HeroService) {
-        hero.heroes$.subscribe(heroes => {
-            this.heroes = heroes;
-        });
-    }
+    constructor(public hero: HeroService) {}
 
     ngOnInit() {}
 }

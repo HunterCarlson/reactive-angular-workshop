@@ -1,7 +1,7 @@
 import { HttpClient } from '@angular/common/http';
 import { Injectable } from '@angular/core';
-import { Observable } from 'rxjs';
-import { map } from 'rxjs/operators';
+import { BehaviorSubject, combineLatest, Observable } from 'rxjs';
+import { map, switchMap } from 'rxjs/operators';
 import { environment } from '../../environments/environment';
 
 export interface Hero {
@@ -48,16 +48,28 @@ const LIMITS = [LIMIT_LOW, LIMIT_MID, LIMIT_HIGH];
 export class HeroService {
     limits = LIMITS;
 
-    heroes$: Observable<Hero[]> = this.http
-        .get(HERO_API, {
-            params: {
+    searchBS = new BehaviorSubject('iron');
+    pageBS = new BehaviorSubject(0);
+    limitBS = new BehaviorSubject(LIMIT_LOW);
+
+    params$ = combineLatest([this.searchBS, this.pageBS, this.limitBS]);
+
+    heroes$ = this.params$.pipe(
+        switchMap(([search, page, limit]) => {
+            const params: any = {
                 apikey: environment.MARVEL_API.PUBLIC_KEY,
-                limit: `${LIMIT_LOW}`,
-                // nameStartsWith: 'iron', // once we have search
-                offset: `${0}`, // page * limit
-            },
-        })
-        .pipe(map((res: any) => res.data.results));
+                limit: `${limit}`,
+                offset: `${page * limit}`,
+            };
+            if (search) {
+                params.nameStartsWith = search;
+            }
+            return this.http.get(HERO_API, {
+                params: params,
+            });
+        }),
+        map((res: any) => res.data.results),
+    );
 
     constructor(private http: HttpClient) {}
 }
