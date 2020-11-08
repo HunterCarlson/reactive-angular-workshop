@@ -1,74 +1,94 @@
 import { Component, OnInit } from '@angular/core';
+import { combineLatest } from 'rxjs';
 import { map, withLatestFrom } from 'rxjs/operators';
 import { Hero, HeroService } from '../../services/hero.service';
 
 @Component({
     selector: 'rx-hero-table',
     template: `
-        <div class="tool-bar">
-            <span class="search-tool">
-                <label for="herosearch">Search: </label>
-                <input
-                    name="herosearch"
-                    [value]="hero.searchBS | async"
-                    (input)="setSearch($event.target.value)"
-                />
-            </span>
-            <span class="page-tool">
-                <label
-                    >Page {{ userPage$ | async }} of
-                    {{ hero.totalPages$ | async }} :
-                </label>
-                <span class="buttons">
-                    <button
-                        class="prev"
-                        disabled="(userPage$ | async) === 1"
-                        (click)="hero.pageBS.next(hero.pageBS.getValue() - 1)"
-                    >
-                        Prev
-                    </button>
-                    <button
-                        class="next"
-                        disabled="isLastPage$ | async"
-                        (click)="hero.pageBS.next(hero.pageBS.getValue() + 1)"
-                    >
-                        Next
-                    </button>
+        <ng-container *ngIf="vm$ | async as vm">
+            <div class="tool-bar">
+                <span class="search-tool">
+                    <label for="herosearch">Search: </label>
+                    <input
+                        name="herosearch"
+                        [value]="vm.search"
+                        (input)="setSearch($event.target.value)"
+                    />
                 </span>
-            </span>
-            <span class="result-tool">
-                <label>Show Results: </label>
-                <span
-                    class="buttons"
-                    *ngIf="hero.limitBS | async as currentLimit"
-                >
-                    <button
-                        *ngFor="let limit of hero.limits"
-                        [disabled]="limit === currentLimit"
-                        (click)="setLimit(limit)"
-                    >
-                        {{ limit }}
-                    </button>
+                <span class="page-tool">
+                    <label
+                        >Page {{ vm.userPage }} of {{ vm.totalPages }} :
+                    </label>
+                    <span class="buttons">
+                        <button
+                            class="prev"
+                            disabled="vm.userPage === 1"
+                            (click)="
+                                hero.pageBS.next(hero.pageBS.getValue() - 1)
+                            "
+                        >
+                            Prev
+                        </button>
+                        <button
+                            class="next"
+                            disabled="vm.isLastPage"
+                            (click)="
+                                hero.pageBS.next(hero.pageBS.getValue() + 1)
+                            "
+                        >
+                            Next
+                        </button>
+                    </span>
                 </span>
-            </span>
-            <span class="total-tool">
-                <label>Total Results: {{ hero.totalHeroes$ | async }}</label>
-            </span>
-        </div>
-        <div class="table-content" *ngIf="hero.heroes$ | async as heroes">
-            <rx-hero-badge
-                *ngFor="let hero of heroes"
-                [hero]="hero"
-            ></rx-hero-badge>
-        </div>
+                <span class="result-tool">
+                    <label>Show Results: </label>
+                    <span class="buttons">
+                        <button
+                            *ngFor="let limit of hero.limits"
+                            [disabled]="limit === vm.limit"
+                            (click)="setLimit(limit)"
+                        >
+                            {{ limit }}
+                        </button>
+                    </span>
+                </span>
+                <span class="total-tool">
+                    <label>Total Results: {{ vm.totalHeroes }}</label>
+                </span>
+            </div>
+            <div class="table-content">
+                <rx-hero-badge
+                    *ngFor="let hero of vm.heroes"
+                    [hero]="hero"
+                ></rx-hero-badge>
+            </div>
+        </ng-container>
     `,
     styleUrls: ['./hero-table.component.scss'],
 })
 export class HeroTableComponent {
-    userPage$ = this.hero.pageBS.pipe(map(page => page + 1));
-    isLastPage$ = this.hero.totalPages$.pipe(
-        withLatestFrom(this.userPage$),
-        map(([total, userPage]) => total === userPage),
+    // userPage$ = this.hero.pageBS.pipe(map(page => page + 1));
+    // isLastPage$ = this.hero.totalPages$.pipe(
+    //     withLatestFrom(this.userPage$),
+    //     map(([total, userPage]) => total === userPage),
+    // );
+
+    vm$ = combineLatest([
+        this.hero.heroes$,
+        this.hero.totalHeroes$,
+        this.hero.totalPages$,
+    ]).pipe(
+        withLatestFrom(this.hero.searchBS, this.hero.pageBS, this.hero.limitBS),
+        map(([[heroes, totalHeroes, totalPages], search, page, limit]) => ({
+            search,
+            limit,
+            heroes,
+            totalHeroes,
+            totalPages,
+            userPage: page + 1,
+            isLastPage: totalPages === page + 1,
+        })),
     );
 
     constructor(public hero: HeroService) {}
