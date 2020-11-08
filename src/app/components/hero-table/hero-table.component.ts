@@ -1,5 +1,5 @@
 import { Component, OnInit } from '@angular/core';
-import { map } from 'rxjs/operators';
+import { map, withLatestFrom } from 'rxjs/operators';
 import { Hero, HeroService } from '../../services/hero.service';
 
 @Component({
@@ -11,7 +11,7 @@ import { Hero, HeroService } from '../../services/hero.service';
                 <input
                     name="herosearch"
                     [value]="hero.searchBS | async"
-                    (input)="hero.searchBS.next($event.target.value)"
+                    (input)="setSearch($event.target.value)"
                 />
             </span>
             <span class="page-tool">
@@ -20,8 +20,20 @@ import { Hero, HeroService } from '../../services/hero.service';
                     {{ hero.totalPages$ | async }} :
                 </label>
                 <span class="buttons">
-                    <button class="prev">Prev</button>
-                    <button class="next">Next</button>
+                    <button
+                        class="prev"
+                        disabled="(userPage$ | async) === 1"
+                        (click)="hero.pageBS.next(hero.pageBS.getValue() - 1)"
+                    >
+                        Prev
+                    </button>
+                    <button
+                        class="next"
+                        disabled="isLastPage$ | async"
+                        (click)="hero.pageBS.next(hero.pageBS.getValue() + 1)"
+                    >
+                        Next
+                    </button>
                 </span>
             </span>
             <span class="result-tool">
@@ -33,7 +45,7 @@ import { Hero, HeroService } from '../../services/hero.service';
                     <button
                         *ngFor="let limit of hero.limits"
                         [disabled]="limit === currentLimit"
-                        (click)="hero.limitBS.next(limit)"
+                        (click)="setLimit(limit)"
                     >
                         {{ limit }}
                     </button>
@@ -52,10 +64,22 @@ import { Hero, HeroService } from '../../services/hero.service';
     `,
     styleUrls: ['./hero-table.component.scss'],
 })
-export class HeroTableComponent implements OnInit {
+export class HeroTableComponent {
     userPage$ = this.hero.pageBS.pipe(map(page => page + 1));
+    isLastPage$ = this.hero.totalPages$.pipe(
+        withLatestFrom(this.userPage$),
+        map(([total, userPage]) => total === userPage),
+    );
 
     constructor(public hero: HeroService) {}
 
-    ngOnInit() {}
+    setLimit(limit: number) {
+        this.hero.pageBS.next(0);
+        this.hero.limitBS.next(limit);
+    }
+
+    setSearch(searchTerm: string) {
+        this.hero.pageBS.next(0);
+        this.hero.searchBS.next(searchTerm);
+    }
 }
