@@ -4,8 +4,11 @@ import { BehaviorSubject, combineLatest, Observable } from 'rxjs';
 import {
     debounce,
     debounceTime,
+    distinctUntilChanged,
     map,
+    shareReplay,
     switchMap,
+    tap,
     withLatestFrom,
 } from 'rxjs/operators';
 import { environment } from '../../environments/environment';
@@ -54,14 +57,21 @@ const LIMITS = [LIMIT_LOW, LIMIT_MID, LIMIT_HIGH];
 export class HeroService {
     limits = LIMITS;
 
-    searchBS = new BehaviorSubject('');
-    pageBS = new BehaviorSubject(0);
-    limitBS = new BehaviorSubject(LIMIT_LOW);
+    private searchBS = new BehaviorSubject('');
+    private pageBS = new BehaviorSubject(0);
+    private limitBS = new BehaviorSubject(LIMIT_LOW);
+    private loadingBS = new BehaviorSubject(false);
 
-    params$ = combineLatest([this.searchBS, this.pageBS, this.limitBS]);
+    search$ = this.searchBS.asObservable().pipe(distinctUntilChanged());
+    page$ = this.pageBS.asObservable().pipe(distinctUntilChanged());
+    limit$ = this.limitBS.asObservable().pipe(distinctUntilChanged());
+    loading$ = this.loadingBS.asObservable().pipe(distinctUntilChanged());
+
+    params$ = combineLatest([this.search$, this.page$, this.limit$]);
 
     heroesResponse$ = this.params$.pipe(
         debounceTime(500),
+        tap(() => this.loadingBS.next(true)),
         switchMap(([search, page, limit]) => {
             const params: any = {
                 apikey: environment.MARVEL_API.PUBLIC_KEY,
@@ -75,6 +85,8 @@ export class HeroService {
                 params: params,
             });
         }),
+        tap(() => this.loadingBS.next(false)),
+        shareReplay(1),
     );
 
     heroes$ = this.heroesResponse$.pipe(map((res: any) => res.data.results));
@@ -82,9 +94,24 @@ export class HeroService {
     totalHeroes$ = this.heroesResponse$.pipe(map((res: any) => res.data.total));
 
     totalPages$ = this.totalHeroes$.pipe(
-        withLatestFrom(this.limitBS),
+        withLatestFrom(this.limit$),
         map(([total, limit]) => Math.ceil(total / limit)),
     );
 
     constructor(private http: HttpClient) {}
+
+    movePageBy(moveBy: number) {
+        const newPage = this.pageBS.getValue() + moveBy;
+        this.pageBS.next(newPage);
+    }
+
+    setLimit(limit: number) {
+        this.pageBS.next(0);
+        this.limitBS.next(limit);
+    }
+
+    setSearch(search: string) {
+        this.pageBS.next(0);
+        this.searchBS.next(search);
+    }
 }

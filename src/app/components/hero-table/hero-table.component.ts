@@ -1,6 +1,6 @@
 import { Component, OnInit } from '@angular/core';
 import { combineLatest } from 'rxjs';
-import { map, withLatestFrom } from 'rxjs/operators';
+import { map, tap, withLatestFrom } from 'rxjs/operators';
 import { Hero, HeroService } from '../../services/hero.service';
 
 @Component({
@@ -23,19 +23,15 @@ import { Hero, HeroService } from '../../services/hero.service';
                     <span class="buttons">
                         <button
                             class="prev"
-                            disabled="vm.userPage === 1"
-                            (click)="
-                                hero.pageBS.next(hero.pageBS.getValue() - 1)
-                            "
+                            [disabled]="vm.userPage === 1"
+                            (click)="movePageBy(-1)"
                         >
                             Prev
                         </button>
                         <button
                             class="next"
-                            disabled="vm.isLastPage"
-                            (click)="
-                                hero.pageBS.next(hero.pageBS.getValue() + 1)
-                            "
+                            [disabled]="vm.isLastPage"
+                            (click)="movePageBy(1)"
                         >
                             Next
                         </button>
@@ -68,38 +64,43 @@ import { Hero, HeroService } from '../../services/hero.service';
     styleUrls: ['./hero-table.component.scss'],
 })
 export class HeroTableComponent {
-    // userPage$ = this.hero.pageBS.pipe(map(page => page + 1));
-    // isLastPage$ = this.hero.totalPages$.pipe(
-    //     withLatestFrom(this.userPage$),
-    //     map(([total, userPage]) => total === userPage),
-    // );
-
     vm$ = combineLatest([
         this.hero.heroes$,
         this.hero.totalHeroes$,
         this.hero.totalPages$,
+        this.hero.loading$,
     ]).pipe(
-        withLatestFrom(this.hero.searchBS, this.hero.pageBS, this.hero.limitBS),
-        map(([[heroes, totalHeroes, totalPages], search, page, limit]) => ({
-            search,
-            limit,
-            heroes,
-            totalHeroes,
-            totalPages,
-            userPage: page + 1,
-            isLastPage: totalPages === page + 1,
-        })),
+        withLatestFrom(this.hero.search$, this.hero.page$, this.hero.limit$),
+        map(
+            ([
+                [heroes, totalHeroes, totalPages, loading],
+                search,
+                page,
+                limit,
+            ]) => ({
+                search,
+                limit,
+                heroes,
+                totalHeroes,
+                totalPages,
+                userPage: page + 1,
+                isLastPage: totalPages === page + 1,
+                loading,
+            }),
+        ),
     );
 
     constructor(public hero: HeroService) {}
 
     setLimit(limit: number) {
-        this.hero.pageBS.next(0);
-        this.hero.limitBS.next(limit);
+        this.hero.setLimit(limit);
     }
 
     setSearch(searchTerm: string) {
-        this.hero.pageBS.next(0);
-        this.hero.searchBS.next(searchTerm);
+        this.hero.setSearch(searchTerm);
+    }
+
+    movePageBy(moveBy: number) {
+        this.hero.movePageBy(moveBy);
     }
 }
