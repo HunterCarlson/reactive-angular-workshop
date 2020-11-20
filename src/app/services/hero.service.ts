@@ -51,7 +51,14 @@ const LIMIT_MID = 25;
 const LIMIT_HIGH = 100;
 const LIMITS = [LIMIT_LOW, LIMIT_MID, LIMIT_HIGH];
 
-const initialState = {
+interface HeroState {
+    search: string;
+    page: number;
+    limit: number;
+    loading: boolean;
+}
+
+const initialState: HeroState = {
     search: '',
     page: 0,
     limit: LIMIT_LOW,
@@ -64,7 +71,7 @@ const initialState = {
 export class HeroService {
     limits = LIMITS;
 
-    heroState$ = new BehaviorSubject(initialState);
+    heroState$ = new BehaviorSubject<HeroState>(initialState);
 
     search$ = this.heroState$.pipe(
         pluck('search'),
