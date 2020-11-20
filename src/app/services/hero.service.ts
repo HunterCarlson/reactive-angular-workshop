@@ -1,11 +1,11 @@
 import { HttpClient } from '@angular/common/http';
 import { Injectable } from '@angular/core';
-import { BehaviorSubject, combineLatest, Observable } from 'rxjs';
+import { BehaviorSubject, combineLatest } from 'rxjs';
 import {
-    debounce,
     debounceTime,
     distinctUntilChanged,
     map,
+    pluck,
     shareReplay,
     switchMap,
     tap,
@@ -51,27 +51,47 @@ const LIMIT_MID = 25;
 const LIMIT_HIGH = 100;
 const LIMITS = [LIMIT_LOW, LIMIT_MID, LIMIT_HIGH];
 
+const initialState = {
+    search: '',
+    page: 0,
+    limit: LIMIT_LOW,
+    loading: false,
+};
+
 @Injectable({
     providedIn: 'root',
 })
 export class HeroService {
     limits = LIMITS;
 
-    private searchBS = new BehaviorSubject('');
-    private pageBS = new BehaviorSubject(0);
-    private limitBS = new BehaviorSubject(LIMIT_LOW);
-    private loadingBS = new BehaviorSubject(false);
+    heroState$ = new BehaviorSubject(initialState);
 
-    search$ = this.searchBS.asObservable().pipe(distinctUntilChanged());
-    page$ = this.pageBS.asObservable().pipe(distinctUntilChanged());
-    limit$ = this.limitBS.asObservable().pipe(distinctUntilChanged());
-    loading$ = this.loadingBS.asObservable().pipe(distinctUntilChanged());
-
+    search$ = this.heroState$.pipe(
+        pluck('search'),
+        distinctUntilChanged(),
+    );
+    page$ = this.heroState$.pipe(
+        pluck('page'),
+        distinctUntilChanged(),
+    );
+    limit$ = this.heroState$.pipe(
+        pluck('limit'),
+        distinctUntilChanged(),
+    );
+    loading$ = this.heroState$.pipe(
+        pluck('loading'),
+        distinctUntilChanged(),
+    );
     params$ = combineLatest([this.search$, this.page$, this.limit$]);
 
     heroesResponse$ = this.params$.pipe(
         debounceTime(500),
-        tap(() => this.loadingBS.next(true)),
+        tap(() => {
+            this.heroState$.next({
+                ...this.heroState$.getValue(),
+                loading: true,
+            });
+        }),
         switchMap(([search, page, limit]) => {
             const params: any = {
                 apikey: environment.MARVEL_API.PUBLIC_KEY,
@@ -85,7 +105,12 @@ export class HeroService {
                 params: params,
             });
         }),
-        tap(() => this.loadingBS.next(false)),
+        tap(() => {
+            this.heroState$.next({
+                ...this.heroState$.getValue(),
+                loading: false,
+            });
+        }),
         shareReplay(1),
     );
 
@@ -101,17 +126,29 @@ export class HeroService {
     constructor(private http: HttpClient) {}
 
     movePageBy(moveBy: number) {
-        const newPage = this.pageBS.getValue() + moveBy;
-        this.pageBS.next(newPage);
+        const state = this.heroState$.getValue();
+        const newPage = state.page + moveBy;
+        this.heroState$.next({
+            ...state,
+            page: newPage,
+        });
     }
 
     setLimit(limit: number) {
-        this.pageBS.next(0);
-        this.limitBS.next(limit);
+        const state = this.heroState$.getValue();
+        this.heroState$.next({
+            ...state,
+            page: 0,
+            limit: limit,
+        });
     }
 
     setSearch(search: string) {
-        this.pageBS.next(0);
-        this.searchBS.next(search);
+        const state = this.heroState$.getValue();
+        this.heroState$.next({
+            ...state,
+            page: 0,
+            search: search,
+        });
     }
 }
