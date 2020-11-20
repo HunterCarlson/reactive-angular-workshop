@@ -1,4 +1,4 @@
-import { Component, OnInit } from '@angular/core';
+import { ChangeDetectionStrategy, Component, OnInit } from '@angular/core';
 import { combineLatest } from 'rxjs';
 import { map, tap, withLatestFrom } from 'rxjs/operators';
 import { Hero, HeroService } from '../../services/hero.service';
@@ -62,6 +62,7 @@ import { Hero, HeroService } from '../../services/hero.service';
         </ng-container>
     `,
     styleUrls: ['./hero-table.component.scss'],
+    changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class HeroTableComponent {
     vm$ = combineLatest([
